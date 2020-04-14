@@ -1,0 +1,17 @@
+DROP TABLE deleted_object;
+DROP TABLE deleted_object_log;
+DROP TABLE deleted_object_meta_value;
+DROP TABLE deleted_object_relation;
+DROP TABLE deleted_object_relation_type;
+DROP TABLE object;
+DROP TABLE object_log;
+DROP TABLE object_meta;
+DROP TABLE object_meta_value;
+DROP TABLE object_relation;
+DROP TABLE object_relation_type;
+DROP TABLE object_state;
+DROP TABLE object_status;
+DROP TABLE object_type;
+DROP TABLE deleted_object_relation_meta_value;
+DROP TABLE object_relation_meta;
+DROP TABLE object_relation_meta_value;
