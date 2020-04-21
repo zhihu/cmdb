@@ -32,7 +32,7 @@ Get the details of a given object state
     "from_object_name": "xxx.xxx",
     "to_type_name": "BUSINESS_LINE",
     "to_object_name": "xxx",
-    "name": "BELONGS",
+    "relation": "BELONGS",
     "create_time": "2017-01-15T01:30:15.01Z",
     "delete_time": "2017-01-15T01:30:15.01Z"
 }
