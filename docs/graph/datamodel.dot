@@ -1,0 +1,41 @@
+graph structs {
+    clusterrank=global
+    node [shape=record]
+    subgraph object_dictionary_cluster {
+        clusterrank=local
+        object_type[label="{\N|id: SMALLINT UNSIGNED\l|name: VARCHAR\l|description: VARCHAR\l|create_time: TIMESTAMP\l|delete_time: TIMESTAMP\l}"]
+        object_status[label="{\N|id: SMALLINT UNSIGNED\l|type_id: SMALLINT UNSIGNED\l|name: VARCHAR\l|description: VARCHAR\l|create_time: TIMESTAMP\l|delete_time: TIMESTAMP\l}"]
+        object_state[label="{\N|id: SMALLINT UNSIGNED\l|status_id: SMALLINT UNSIGNED\l|name: VARCHAR\l|description: VARCHAR\l|create_time: TIMESTAMP\l|delete_time: TIMESTAMP\l}"]
+    }
+    subgraph object_cluster {
+        clusterrank=local
+        object[label="{\N|id: BIGINT UNSIGNED\l|type_id: SMALLINT UNSIGNED\l|name: VARCHAR\l|version: BIGINT\l|relation_version: BIGINT\l|description: VARCHAR\l|status_id: SMALLINT UNSIGNED\l|state_id: SMALLINT UNSIGNED\l|create_time: TIMESTAMP\l|update_time: TIMESTAMP\l|delete_time: TIMESTAMP\l}"]
+        object_meta[label="{\N|id: MEDIUMINT UNSIGNED\l|type_id: SMALLINT UNSIGNED\l|name: VARCHAR\l|value_type: TINYINT UNSIGNED\l|description: VARCHAR\l|create_time: TIMESTAMP\l|delete_time: TIMESTAMP\l}"]
+        object_meta_value[label="{\N|object_id: BIGINT UNSIGNED\l|meta_id: MEDIUMINT UNSIGNED\l|value: TEXT\l|create_time: TIMESTAMP\l|update_time: TIMESTAMP\l|delete_time: TIMESTAMP\l}"]
+        object_log[label="{\N|id: BIGINT UNSIGNED\l|object_id: BIGINT UNSIGNED\l|level: TINYINT UNSIGNED\l|format: TINYINT UNSIGNED\l|source: TINYINT UNSIGNED\l|message: TEXT\l|create_by VARCHAR\l|create_time: TIMESTAMP\l|delete_time: TIMESTAMP\l}"]
+    }
+    subgraph object_relation_cluster {
+        clusterrank=local
+        object_relation_type[label="{\N|id: MEDIUMINT UNSIGNED\l|from_type_id: SMALLINT UNSIGNED\l|to_type_id: SMALLINT UNSIGNED\l|name: VARCHAR\l|description: VARCHAR\l|create_time: TIMESTAMP\l|update_time: TIMESTAMP\l|delete_time: TIMESTAMP\l}"]
+        object_relation[label="{\N|from_object_id: BIGINT UNSIGNED\l|relation_type_id: MEDIUMINT UNSIGNED\l|to_object_id: BIGINT UNSIGNED\l|create_time: TIMESTAMP\l|update_time: TIMESTAMP\l|delete_time: TIMESTAMP\l}"]
+        object_relation_meta[label="{\N|id: INT UNSIGNED\l|relation_type_id: MEDIUMINT UNSIGNED\l|name: VARCHAR\l|value_type: TINYINT UNSIGNED\l|description: VARCHAR\l|create_time: TIMESTAMP\l|delete_time: TIMESTAMP\l}"]
+        object_relation_meta_value[label="{\N|from_object_id: BIGINT UNSIGNED\l|relation_type_id: MEDIUMINT UNSIGNED\l|to_object_id: BIGINT UNSIGNED\l|meta_id: MEDIUMINT UNSIGNED\l|value: TEXT\l|create_time: TIMESTAMP\l|update_time: TIMESTAMP\l|delete_time: TIMESTAMP\l}"]
+    }
+
+    object_type--object_status
+    object_status--object_state
+
+    object_meta--object_meta_value
+
+    object--object_meta_value
+    object--object_status
+    object--object_state
+    object--object_type
+    object--object_log
+
+    object_relation_type--object_relation_meta
+    object_relation_type--object_relation
+    object_relation_meta--object_relation_meta_value
+    object_relation--object_relation_meta_value
+    object--object_relation
+}
