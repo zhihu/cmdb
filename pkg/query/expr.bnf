@@ -1,0 +1,85 @@
+!whitespace : '\t' | '\n' | '\r' | ' ' ;
+_letter : 'a'-'z' | 'A'-'Z' ;
+_digit : '0'-'9' ;
+literal: _letter { _letter | _digit | '_' };
+operator:  '<' | '>' | '!'  '=' | '<' '='|'>' '=';
+equal: '=' | '=' '=' ;
+_lchar : 'A'-'Z' | 'a'-'z' | '0'-'9'
+       		| '#' | '$' | '%' | '&' | '\'' | '*' | '+' | '-' | '/'
+       		| '?' | '^' | '_' | '`' | '{' | '|' | '}' | '~' | '.'
+       		| '\u0100'-'\U0010FFFF';
+
+value: {_lchar};
+
+_qmark : '"' ;
+
+_escape : '\\' ;
+
+_unescaped : ' ' | '!' | '\u0023'-'\u005B' | '\u005D'-'\U0010FFFF';
+
+_char : _unescaped |
+	          ( _escape (
+	              '"' |
+	              '\u005C' |          /* \    reverse solidus U+005C */
+	              '\u002F' |          /* /    solidus         U+002F */
+	              '\u0062' |          /* b    backspace       U+0008 */
+	              '\u0066' |          /* f    form feed       U+000C */
+	              '\u006E' |          /* n    line feed       U+000A */
+	              '\u0072' |          /* r    carriage return U+000D */
+	              '\u0074' |          /* t    tab             U+0009 */
+	              '\u0075' _digit _digit _digit _digit ) )  /* uXXXX                U+XXXX */
+	              ;
+
+string : _qmark {_char} _qmark;
+
+
+<< import "github.com/zhihu/cmdb/pkg/query/ast"
+   import "github.com/zhihu/cmdb/pkg/query/token" >>
+
+
+Expression :
+	Condition                           << []*ast.Requirement{$0.(*ast.Requirement)},nil >>
+	| Expression And Condition        << append($0.([]*ast.Requirement),$2.(*ast.Requirement)),nil >>
+	;
+
+Condition :
+	  MetaName InOperator "(" Values ")"    << &ast.Requirement{Key:$0.(string),Operator:ast.Operator($1.(string)),Value:$3.([]string)},nil >>
+	| MetaName Operator Value               << &ast.Requirement{Key:$0.(string),Operator:ast.Operator($1.(string)),Value:[]string{$2.(string)}},nil >>
+	| MetaName EqualOperator Value          << &ast.Requirement{Key:$0.(string),Operator:ast.Equals,Value:[]string{$2.(string)}},nil >>
+	| MetaName ExistOperator                << &ast.Requirement{Key:$0.(string),Operator:$1.(ast.Operator)},nil >>
+	| "!" MetaName                          << &ast.Requirement{Key:$1.(string),Operator:ast.Negates},nil >>
+	| MetaName                              << &ast.Requirement{Key:$1.(string),Operator:ast.Positive},nil >>
+;
+
+
+Values :
+		  Value              << []string{$0.(string)},nil >>
+		| Values "," Value   << append($0.([]string),$2.(string)),nil >>
+		;
+
+Value :
+	  value  << string($0.(*token.Token).Lit),nil >>
+	| string << ast.Unquote($0.(*token.Token).Lit) >>
+;
+
+MetaName:
+	literal    << string($0.(*token.Token).Lit),nil >>
+;
+
+InOperator: "notin"  << string($0.(*token.Token).Lit),nil >>
+          | "in"     << string($0.(*token.Token).Lit),nil >>
+;
+
+ExistOperator :
+"exists"       << ast.Exists,nil >>
+| "exist"      << ast.Exists,nil >>
+| "notexist"   << ast.DoesNotExist,nil >>
+| "notexists"  << ast.DoesNotExist,nil >>
+;
+
+And: "AND" | "&&";
+
+Operator: operator << string($0.(*token.Token).Lit),nil >>
+;
+
+EqualOperator: equal ;
