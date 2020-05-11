@@ -52,4 +52,4 @@ Get the details of object meta values
 
 ## Notes
 
-* Deleted object metas will not be included unless explicitly specified
+* The deleted object's metas will not be included unless explicitly specified
