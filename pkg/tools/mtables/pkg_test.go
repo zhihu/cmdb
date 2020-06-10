@@ -11,24 +11,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package query
+package mtables
 
-import (
-	"log"
+import "testing"
 
-	"github.com/zhihu/cmdb/pkg/query/ast"
-	"github.com/zhihu/cmdb/pkg/query/lexer"
-	"github.com/zhihu/cmdb/pkg/query/parser"
-)
+var testPkgShortNameTable = []struct {
+	Path  string
+	Short string
+}{
+	{
+		"example.com/test/v1", "test",
+	},
+	{
+		"example.com/test", "test",
+	},
+	{
+		"example.com/long/path/test", "test",
+	},
+	{
+		"example.com/use_other/path/Test", "test",
+	},
+	{
+		"example.com/use_other/path/test-case", "test_case",
+	},
+}
 
-func ExampleAST() {
-	l := lexer.NewLexer([]byte(`x == "some text" && !kk &&  y in (1,23,4,5)`))
-	res, err := parser.NewParser().Parse(l)
-	if err != nil {
-		panic(err)
-	}
-	requirements := res.([]*ast.Requirement)
-	for _, requirement := range requirements {
-		log.Println(requirement)
+func TestPkgShortName(t *testing.T) {
+	for _, v := range testPkgShortNameTable {
+		got := PkgShortName(v.Path)
+		if got != v.Short {
+			t.Fatalf("input: %s expected: %s got: %s", v.Path, v.Short, got)
+		}
 	}
 }

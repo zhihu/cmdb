@@ -31,7 +31,7 @@ func BooleanValue(b bool) string {
 
 type ObjectType struct {
 	ID          int    `db:"id"`
-	Name        string `db:"name"`
+	Name        string `db:"name" table:"index:Name,unique"`
 	Description string `db:"description"`
 	// Default: CURRENT_TIMESTAMP
 	CreateTime time.Time  `db:"create_time"`
@@ -40,8 +40,8 @@ type ObjectType struct {
 
 type ObjectStatus struct {
 	ID          int    `db:"id"`
-	TypeID      int    `db:"type_id"`
-	Name        string `db:"name"`
+	TypeID      int    `db:"type_id" table:"belongsTo:many,ObjectType,ID;index:TypeIDName,unique"`
+	Name        string `db:"name" table:"index:TypeIDName,unique"`
 	Description string `db:"description"`
 	// Default: CURRENT_TIMESTAMP
 	CreateTime time.Time  `db:"create_time"`
@@ -51,8 +51,8 @@ type ObjectStatus struct {
 
 type ObjectState struct {
 	ID          int    `db:"id"`
-	StatusID    int    `db:"status_id"`
-	Name        string `db:"name"`
+	StatusID    int    `db:"status_id" table:"belongsTo:many,ObjectStatus,ID;index:StatusIDName,unique"`
+	Name        string `db:"name" table:"index:StatusIDName,unique"`
 	Description string `db:"description"`
 	// Default: CURRENT_TIMESTAMP
 	CreateTime time.Time  `db:"create_time"`
@@ -63,8 +63,8 @@ type Object struct {
 	ID              int    `db:"id"`
 	TypeID          int    `db:"type_id"`
 	Name            string `db:"name"`
-	Version         int    `db:"version"`
-	RelationVersion int    `db:"relation_version"`
+	Version         uint64 `db:"version"`
+	RelationVersion uint64 `db:"relation_version"`
 	Description     string `db:"description"`
 	StatusID        int    `db:"status_id"`
 	StateID         int    `db:"state_id"`
@@ -78,8 +78,8 @@ type DeletedObject struct {
 	ID              int    `db:"id"`
 	TypeID          int    `db:"type_id"`
 	Name            string `db:"name"`
-	Version         int    `db:"version"`
-	RelationVersion int    `db:"relation_version"`
+	Version         uint64 `db:"version"`
+	RelationVersion uint64 `db:"relation_version"`
 	Description     string `db:"description"`
 	StatusID        int    `db:"status_id"`
 	StateID         int    `db:"state_id"`
@@ -91,8 +91,8 @@ type DeletedObject struct {
 
 type ObjectMeta struct {
 	ID     int    `db:"id"`
-	TypeID int    `db:"type_id"`
-	Name   string `db:"name"`
+	TypeID int    `db:"type_id" table:"belongsTo:many,ObjectType,ID;index:TypeName,unique"`
+	Name   string `db:"name" table:"index:TypeName,unique"`
 	// Comment: 1: STRING 2: INTEGER, 3: DOUBLE, 4: BOOLEAN
 	// Default: 1
 	ValueType   int    `db:"value_type"`
@@ -103,8 +103,8 @@ type ObjectMeta struct {
 }
 
 type ObjectMetaValue struct {
-	ObjectID int    `db:"object_id"`
-	MetaID   int    `db:"meta_id"`
+	ObjectID int    `db:"object_id" table:"belongsTo:many,Object,ID;index:ID,unique"`
+	MetaID   int    `db:"meta_id" table:"index:ID,unique"`
 	Value    string `db:"value"`
 	// Default: CURRENT_TIMESTAMP
 	CreateTime time.Time  `db:"create_time"`

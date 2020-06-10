@@ -8,21 +8,47 @@ package main
 import (
 	"context"
 	"github.com/zhihu/cmdb/pkg/server"
+	"github.com/zhihu/cmdb/pkg/storage/cache"
+	"github.com/zhihu/cmdb/pkg/storage/cdc"
 	"github.com/zhihu/cmdb/pkg/storage/tidb"
+	"github.com/zhihu/cmdb/pkg/tools/database"
+	"github.com/zhihu/cmdb/pkg/tools/pd"
+)
+
+import (
+	_ "github.com/zhihu/cmdb/pkg/storage/cdc/mysql-kafka"
+	_ "github.com/zhihu/cmdb/pkg/storage/cdc/tidb-kafka"
 )
 
 // Injectors from wire.go:
 
-func InitServer(ctx context.Context, dsn tidb.DSN) (*server.Server, error) {
-	storage, err := tidb.NewStorage(dsn)
+func InitServer(ctx context.Context, dsn database.DSN, pdConf *pd.Config, name cdc.DriverName, source cdc.Source) (*server.Server, error) {
+	db, err := database.MySQL(dsn)
 	if err != nil {
 		return nil, err
 	}
+	timestampGetter, err := pd.NewTimestampGetter(pdConf)
+	if err != nil {
+		return nil, err
+	}
+	watcher, err := cdc.Build(name, source)
+	if err != nil {
+		return nil, err
+	}
+	cacheCache, err := cache.NewCache(watcher, db)
+	if err != nil {
+		return nil, err
+	}
+	storage := tidb.NewStorage(db, timestampGetter, cacheCache)
 	objects := &server.Objects{
 		Storage: storage,
 	}
+	objectTypes := &server.ObjectTypes{
+		Storage: storage,
+	}
 	serverServer := &server.Server{
-		Objects: objects,
+		Objects:     objects,
+		ObjectTypes: objectTypes,
 	}
 	return serverServer, nil
 }

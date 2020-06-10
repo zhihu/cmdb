@@ -11,20 +11,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build wireinject
-
-package main
+package mock
 
 import (
 	"context"
+	"errors"
+	"sync/atomic"
+	"time"
 
-	"github.com/google/wire"
-	"github.com/zhihu/cmdb/pkg/server"
-	"github.com/zhihu/cmdb/pkg/storage/cdc"
-	"github.com/zhihu/cmdb/pkg/tools/database"
-	"github.com/zhihu/cmdb/pkg/tools/pd"
+	"github.com/pingcap/tidb/store/tikv/oracle"
 )
 
-func InitServer(ctx context.Context, dsn database.DSN, pdConf *pd.Config, name cdc.DriverName, source cdc.Source) (*server.Server, error) {
-	panic(wire.Build(server.Set))
+const maxLogical = int64(1 << 18)
+
+func NewTimestampGetter() *TimestampGetter {
+	return &TimestampGetter{}
+}
+
+type TimestampGetter struct {
+	counter int64
+}
+
+func (t *TimestampGetter) Get(ctx context.Context) (uint64, error) {
+	physical := time.Now().UnixNano() / int64(time.Millisecond)
+	logical := atomic.AddInt64(&t.counter, 1)
+	if logical > maxLogical {
+		return 0, errors.New("reach max logical")
+	}
+	ts := oracle.ComposeTS(physical, logical)
+	return ts, nil
 }

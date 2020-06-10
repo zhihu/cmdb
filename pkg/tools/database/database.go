@@ -11,20 +11,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build wireinject
-
-package main
+package database
 
 import (
-	"context"
-
-	"github.com/google/wire"
-	"github.com/zhihu/cmdb/pkg/server"
-	"github.com/zhihu/cmdb/pkg/storage/cdc"
-	"github.com/zhihu/cmdb/pkg/tools/database"
-	"github.com/zhihu/cmdb/pkg/tools/pd"
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/jmoiron/sqlx"
 )
 
-func InitServer(ctx context.Context, dsn database.DSN, pdConf *pd.Config, name cdc.DriverName, source cdc.Source) (*server.Server, error) {
-	panic(wire.Build(server.Set))
+type DSN string
+
+func MySQL(dsn DSN) (db *sqlx.DB, err error) {
+	return sqlx.Open("mysql", string(dsn))
 }

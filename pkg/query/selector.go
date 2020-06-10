@@ -20,7 +20,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/zhihu/cmdb/pkg/domain"
+	v1 "github.com/zhihu/cmdb/pkg/api/v1"
 	"github.com/zhihu/cmdb/pkg/model"
 	"github.com/zhihu/cmdb/pkg/query/ast"
 	"github.com/zhihu/cmdb/pkg/query/lexer"
@@ -52,7 +52,7 @@ type Selector struct {
 	requires []*ast.Requirement
 }
 
-func (s *Selector) Match(metas map[string]*domain.Meta) bool {
+func (s *Selector) Match(metas map[string]*v1.ObjectMetaValue) bool {
 	for _, require := range s.requires {
 		meta, ok := metas[require.Key]
 		if !ok {
@@ -68,139 +68,152 @@ func (s *Selector) Match(metas map[string]*domain.Meta) bool {
 		case ast.Exists:
 			continue
 		case ast.Positive:
-			if b, ok := meta.Value.(bool); ok && !b {
+			if b, err := strconv.ParseBool(meta.Value); err == nil && !b {
 				return false
 			}
 			continue
 		case ast.Negates:
-			if b, ok := meta.Value.(bool); ok && b {
+			if b, err := strconv.ParseBool(meta.Value); err == nil && b {
 				return false
 			}
 			continue
 		case ast.Equals:
-			if meta.RawValue != require.Value[0] {
+			if meta.Value != require.Value[0] {
 				return false
 			}
 			continue
 		case ast.NotEquals:
-			if meta.RawValue == require.Value[0] {
+			if meta.Value == require.Value[0] {
 				return false
 			}
 			continue
 		case ast.LessThan:
-			switch c := meta.Value.(type) {
-			case float64:
+			switch meta.ValueType {
+			case v1.ValueType_DOUBLE:
 				f, err := strconv.ParseFloat(require.Value[0], 64)
 				if err != nil {
 					return false
 				}
+				c, _ := strconv.ParseFloat(meta.Value, 64)
 				if c < f {
 					continue
 				}
 				return false
-			case string:
-				if c < require.Value[0] {
+			case v1.ValueType_STRING:
+				if meta.Value < require.Value[0] {
 					continue
 				}
 				return false
-			case int:
+			case v1.ValueType_INTEGER:
 				f, err := strconv.ParseInt(require.Value[0], 10, 64)
 				if err != nil {
 					return false
 				}
-				if c < int(f) {
+				c, _ := strconv.ParseInt(meta.Value, 10, 64)
+				if c < f {
 					continue
 				}
 				return false
 			}
 		case ast.GreaterThan:
-			switch c := meta.Value.(type) {
-			case float64:
+			switch meta.ValueType {
+			case v1.ValueType_DOUBLE:
 				f, err := strconv.ParseFloat(require.Value[0], 64)
 				if err != nil {
 					return false
 				}
+				c, _ := strconv.ParseFloat(meta.Value, 64)
 				if c > f {
 					continue
 				}
 				return false
-			case string:
-				if c > require.Value[0] {
+			case v1.ValueType_STRING:
+				if meta.Value > require.Value[0] {
 					continue
 				}
 				return false
-			case int:
+			case v1.ValueType_INTEGER:
 				f, err := strconv.ParseInt(require.Value[0], 10, 64)
 				if err != nil {
 					return false
 				}
-				if c > int(f) {
+				c, _ := strconv.ParseInt(meta.Value, 10, 64)
+				if c > f {
 					continue
 				}
 				return false
 			}
 		case ast.GreaterThanOrEquals:
-			switch c := meta.Value.(type) {
-			case float64:
+			switch meta.ValueType {
+			case v1.ValueType_DOUBLE:
 				f, err := strconv.ParseFloat(require.Value[0], 64)
 				if err != nil {
 					return false
 				}
+				c, _ := strconv.ParseFloat(meta.Value, 64)
 				if c >= f {
 					continue
 				}
 				return false
-			case string:
-				if c >= require.Value[0] {
+			case v1.ValueType_STRING:
+				if meta.Value >= require.Value[0] {
 					continue
 				}
 				return false
-			case int:
+			case v1.ValueType_INTEGER:
 				f, err := strconv.ParseInt(require.Value[0], 10, 64)
 				if err != nil {
 					return false
 				}
-				if c >= int(f) {
+				c, _ := strconv.ParseInt(meta.Value, 10, 64)
+				if c >= f {
 					continue
 				}
 				return false
 			}
 		case ast.LessThanOrEquals:
-			switch c := meta.Value.(type) {
-			case float64:
+			switch meta.ValueType {
+			case v1.ValueType_DOUBLE:
 				f, err := strconv.ParseFloat(require.Value[0], 64)
 				if err != nil {
 					return false
 				}
+				c, _ := strconv.ParseFloat(meta.Value, 64)
 				if c <= f {
 					continue
 				}
 				return false
-			case string:
-				if c <= require.Value[0] {
+			case v1.ValueType_STRING:
+				if meta.Value <= require.Value[0] {
 					continue
 				}
 				return false
-			case int:
+			case v1.ValueType_INTEGER:
 				f, err := strconv.ParseInt(require.Value[0], 10, 64)
 				if err != nil {
 					return false
 				}
-				if c <= int(f) {
+				c, _ := strconv.ParseInt(meta.Value, 10, 64)
+				if c <= f {
 					continue
 				}
 				return false
 			}
 		case ast.In:
+			match := false
 			for _, v := range require.Value {
-				if v != meta.RawValue {
-					return false
+				if v == meta.Value {
+					match = true
+					break
 				}
+			}
+			if !match {
+				return false
 			}
 			continue
 		case ast.NotIn:
 			for _, v := range require.Value {
-				if v == meta.RawValue {
+				if v == meta.Value {
 					return false
 				}
 			}
