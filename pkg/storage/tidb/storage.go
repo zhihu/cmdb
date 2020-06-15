@@ -34,7 +34,7 @@ var (
 	ErrUnknownState       = fmt.Errorf("unknown state")
 	ErrUnknownMeta        = fmt.Errorf("unknown meta")
 	ErrNoSuchType         = fmt.Errorf("no such type")
-	ErrVersionMatchFailed = fmt.Errorf("versio match failed")
+	ErrVersionMatchFailed = fmt.Errorf("version match failed")
 )
 
 func NewStorage(db *sqlx.DB, tsGetter storage.TimestampGetter, cache *cache.Cache) *Storage {

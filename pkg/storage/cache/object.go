@@ -80,7 +80,7 @@ func (t *Objects) LoadData(ctx context.Context, db *sqlx.DB) error {
 
 func (t *Objects) RemoveFilterWatcher(f storage.FilterWatcher) {
 	t.mutex.Lock()
-	var nHandlers []storage.FilterWatcher
+	var nHandlers = make([]storage.FilterWatcher, 0, len(t.handlers)-1)
 	for _, handler := range t.handlers {
 		if handler != f {
 			nHandlers = append(nHandlers, handler)
