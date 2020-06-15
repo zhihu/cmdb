@@ -1,0 +1,194 @@
+syntax = "proto3";
+package zhihu.cmdb.api.v1;
+option java_package = "com.zhihu.cmdb.api.v1";
+option go_package = "pkg/api/v1;v1";
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/field_mask.proto";
+
+// models define
+
+enum ValueType {
+    STRING = 0;
+    INTEGER = 1;
+    DOUBLE = 2;
+    BOOLEAN = 3;
+}
+
+message ObjectType {
+    string name = 1;
+    string description = 2;
+    map<string, ObjectStatus> statuses = 3;
+    map<string, ObjectMeta> metas = 4;
+    google.protobuf.Timestamp create_time = 5;
+    google.protobuf.Timestamp delete_time = 6;
+}
+
+message ObjectStatus {
+    string name = 1;
+    string description = 2;
+    map<string, ObjectState> states = 3;
+}
+
+message ObjectState {
+    string name = 1;
+    string description = 2;
+}
+
+message ObjectMeta {
+    string name = 1;
+    string description = 2;
+    ValueType value_type = 3;
+}
+
+
+message Object {
+    string type = 1;
+    string name = 2;
+    string description = 3;
+    string status = 4;
+    string state = 5;
+    uint64 version = 6;
+    google.protobuf.Timestamp create_time = 7;
+    google.protobuf.Timestamp update_time = 8;
+    map<string, ObjectMetaValue> metas = 9;
+}
+
+message ObjectMetaValue {
+    ValueType value_type = 1;
+    string value = 2;
+}
+
+// Objects service define:
+
+message ObjectListRequest {
+    string type = 1;
+    ObjectView view = 2;
+    string query = 3;
+    string page_token = 4;
+    int32 page_size = 5;
+    bool show_deleted = 6;
+}
+
+message ObjectGetRequest {
+    string type = 1;
+    string name = 2;
+    ObjectView view = 3;
+}
+
+message ObjectDeleteRequest {
+    string type = 1;
+    string name = 2;
+}
+
+message ObjectListResponse {
+    string kind = 1;
+    repeated Object objects = 2;
+    string next_page_token = 3;
+}
+
+enum ObjectView {
+    BASIC = 0;
+    NORMAL = 1;
+    RICH = 2;
+}
+
+enum WatchEventType {
+    INIT = 0;
+    CREATE = 1;
+    UPDATE = 2;
+    DELETE = 3;
+}
+
+message ObjectWatchEvent {
+    repeated Object objects = 1;
+    WatchEventType type = 2;
+}
+
+message ObjectUpdateRequest {
+    Object object = 1;
+    google.protobuf.FieldMask update_mask = 2;
+    bool match_version = 3;
+}
+
+service Objects {
+    rpc List (ObjectListRequest) returns (ObjectListResponse) {
+        option (google.api.http) = {
+            get: "/v1/api/objects/{type}"
+        };
+    };
+    rpc Get (ObjectGetRequest) returns (Object) {
+        option (google.api.http) = {
+            get: "/v1/api/objects/{type}/{name}"
+        };
+    };
+    rpc Delete (ObjectDeleteRequest) returns (Object) {
+        option (google.api.http) = {
+            delete: "/v1/api/objects/{type}/{name}"
+        };
+    };
+
+    rpc Create (Object) returns (Object) {
+        option (google.api.http) = {
+            post: "/v1/api/objects"
+            body: "*"
+        };
+    }
+    rpc Update (ObjectUpdateRequest) returns (Object) {
+        option (google.api.http) = {
+            put: "/v1/api/objects"
+            body: "*"
+        };
+    }
+    rpc Watch (ObjectListRequest) returns (stream ObjectWatchEvent) {
+        option (google.api.http) = {
+            get: "/v1/api/objects/{type}/*/watch"
+        };
+    }
+}
+
+// ObjectTypes service define:
+
+message GetObjectTypeRequest {
+    string name = 1;
+}
+
+message ListObjectTypesRequest {
+    bool show_deleted = 1;
+    bool consistent = 2;
+}
+
+message ListObjectTypesResponse {
+    repeated ObjectType types = 2;
+}
+
+message ObjectTypeUpdateRequest {
+    ObjectType type = 1;
+    google.protobuf.FieldMask update_mask = 2;
+}
+
+service ObjectTypes {
+    rpc Create (ObjectType) returns (ObjectType) {
+        option (google.api.http) = {
+            post: "/v1/api/object_types"
+            body: "*"
+        };
+    };
+    rpc Update (ObjectTypeUpdateRequest) returns (ObjectType) {
+        option (google.api.http) = {
+            put: "/v1/api/object_types"
+            body: "*"
+        };
+    };
+    rpc List (ListObjectTypesRequest) returns (ListObjectTypesResponse) {
+        option (google.api.http) = {
+            get: "/v1/api/object_types"
+        };
+    };
+    rpc Get (GetObjectTypeRequest) returns (ObjectType) {
+        option (google.api.http) = {
+            get: "/v1/api/object_types/{name}"
+        };
+    }
+}

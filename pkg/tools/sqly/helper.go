@@ -11,25 +11,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package domain
+package sqly
 
-type Object struct {
-	id          int64
-	statusID    int64
-	typeID      int64
-	stateID     int64
-	Type        string           `json:"type"`
-	Name        string           `json:"name"`
-	Metas       map[string]*Meta `json:"metas"`
-	Status      string           `json:"status"`
-	State       string           `json:"state"`
-	Description string           `json:"description"`
+import (
+	"context"
+
+	"github.com/jmoiron/sqlx"
+)
+
+type Execer struct {
+	Ctx context.Context
+	Tx  *sqlx.Tx
+	Err error
 }
 
-type Meta struct {
-	metaID   int64
-	RawValue string
-	Type     int
-	Name     string      `json:"name"`
-	Value    interface{} `json:"value"`
+func (e *Execer) Exec(query string, args ...interface{}) {
+	if e.Err != nil {
+		return
+	}
+	_, err := e.Tx.ExecContext(e.Ctx, query, args...)
+	if err != nil {
+		e.Err = err
+	}
 }

@@ -27,10 +27,14 @@ import (
 	"github.com/urfave/cli/v2"
 	v1 "github.com/zhihu/cmdb/pkg/api/v1"
 	"github.com/zhihu/cmdb/pkg/signals"
-	"github.com/zhihu/cmdb/pkg/storage/tidb"
+	"github.com/zhihu/cmdb/pkg/storage/cdc"
+	_ "github.com/zhihu/cmdb/pkg/storage/cdc/mysql-kafka"
+	_ "github.com/zhihu/cmdb/pkg/storage/cdc/tidb-kafka"
+	"github.com/zhihu/cmdb/pkg/tools/database"
 	"github.com/zhihu/cmdb/pkg/tools/grpcserver"
 	"github.com/zhihu/cmdb/pkg/tools/httpserver"
 	"github.com/zhihu/cmdb/pkg/tools/logger"
+	"github.com/zhihu/cmdb/pkg/tools/pd"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 )
@@ -40,10 +44,13 @@ var Version = "dev"
 var log = loggo.GetLogger("")
 
 const (
-	FlagLogConf = "log_conf"
-	FlagAddr    = "addr"
-	FlagDSN     = "dsn"
-	FlagGOPS    = "gops"
+	FlagLogConf   = "log_conf"
+	FlagAddr      = "addr"
+	FlagPDAddr    = "pd_addr"
+	FlagCDCType   = "cdc_type"
+	FlagCDCSource = "cdc_source"
+	FlagDSN       = "dsn"
+	FlagGOPS      = "gops"
 )
 
 func main() {
@@ -69,16 +76,36 @@ func main() {
 			Required: true,
 		},
 		&cli.StringFlag{
-			Name:    FlagLogConf,
+			Name:     FlagLogConf,
 			FilePath: "./log.conf",
-			Usage:   "config loggers level, see http://github.com/juju/loggo",
-			EnvVars: []string{"LOG_CONF"},
-			Value:   "<root>=INFO",
+			Usage:    "config loggers level, see http://github.com/juju/loggo",
+			EnvVars:  []string{"LOG_CONF"},
+			Value:    "<root>=INFO",
+		},
+		&cli.StringSliceFlag{
+			Name:     FlagPDAddr,
+			Usage:    "set pd's addr",
+			EnvVars:  []string{"PD_ADDR"},
+			Required: true,
 		},
 		&cli.BoolFlag{
-			Name:     FlagGOPS,
-			Usage:    "start gops agent",
-			EnvVars:  []string{"GOPS"},
+			Name:    FlagGOPS,
+			Usage:   "start gops agent",
+			EnvVars: []string{"GOPS"},
+			Value:   true,
+		},
+		&cli.StringFlag{
+			Name:     FlagCDCType,
+			Usage:    "",
+			EnvVars:  []string{"CDC_TYPE"},
+			Value:    "",
+			Required: true,
+		},
+		&cli.StringFlag{
+			Name:     FlagCDCSource,
+			Usage:    "",
+			EnvVars:  []string{"CDC_SOURCE"},
+			Value:    "",
 			Required: true,
 		},
 	}
@@ -88,7 +115,15 @@ func main() {
 			return err
 		}
 		log.Debugf("cmdb version: %s", Version)
-		return Run(c.Context, c.String(FlagAddr), c.String(FlagDSN), c.Bool(FlagGOPS))
+
+		return Run(c.Context, AppConf{
+			ListenAt:       c.String(FlagAddr),
+			DataSourceName: database.DSN(c.String(FlagDSN)),
+			PProfAgent:     c.Bool(FlagGOPS),
+			PDAddress:      c.StringSlice(FlagPDAddr),
+			CDCDriver:      cdc.DriverName(c.String(FlagCDCType)),
+			CDCSource:      cdc.Source(c.String(FlagCDCSource)),
+		})
 	}
 
 	err := app.RunContext(ctx, os.Args)
@@ -98,19 +133,27 @@ func main() {
 	}
 }
 
-func Run(ctx context.Context, addr string, dsn string, pprofAgent bool) error {
-	if pprofAgent {
+type AppConf struct {
+	ListenAt       string
+	DataSourceName database.DSN
+	PProfAgent     bool
+	PDAddress      []string
+	CDCDriver      cdc.DriverName
+	CDCSource      cdc.Source
+}
+
+func Run(ctx context.Context, app AppConf) error {
+	if app.PProfAgent {
 		defer agent.Close()
 		go func() {
 			_ = agent.Listen(agent.Options{})
 		}()
 	}
 	// use cmux to support grpc and http on one port.
-	listener, err := net.Listen("tcp", addr)
+	listener, err := net.Listen("tcp", app.ListenAt)
 	cm := cmux.New(listener)
-	grpcL := cm.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
+	grpcL := cm.MatchWithWriters(cmux.HTTP2MatchHeaderFieldSendSettings("content-type", "application/grpc"))
 	httpL := cm.Match(cmux.HTTP1Fast())
-
 
 	// create grpc server
 	grpcServer := grpc.NewServer()
@@ -118,7 +161,9 @@ func Run(ctx context.Context, addr string, dsn string, pprofAgent bool) error {
 	gateway := runtime.NewServeMux(runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{OrigName: true, EmitDefaults: true}))
 
 	// init server instance.
-	srv, err := InitServer(ctx, tidb.DSN(dsn))
+	var pdConf = &pd.Config{}
+	pdConf.Addr = app.PDAddress
+	srv, err := InitServer(ctx, app.DataSourceName, pdConf, app.CDCDriver, app.CDCSource)
 	if err != nil {
 		return err
 	}
@@ -128,10 +173,11 @@ func Run(ctx context.Context, addr string, dsn string, pprofAgent bool) error {
 	// start http server
 	group.Go(func() error {
 		m := http.NewServeMux()
-		// support swagger
+		//// support swagger
 		m.HandleFunc("/swagger", func(writer http.ResponseWriter, request *http.Request) {
+			writer.Header().Set("Access-Control-Allow-Origin", "*")
 			writer.Header().Set("Content-Type", "application/json")
-			_, _ = writer.Write([]byte(v1.Swagger))
+			_, _ = writer.Write([]byte(v1.Swagger()))
 		})
 		// support CORS requests
 		m.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {

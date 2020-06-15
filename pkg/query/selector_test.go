@@ -14,18 +14,22 @@
 package query
 
 import (
+	"bytes"
+	"encoding/json"
 	"math/rand"
 	"strconv"
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/jsonpb"
+	v1 "github.com/zhihu/cmdb/pkg/api/v1"
 	"github.com/zhihu/cmdb/pkg/model"
 	"github.com/zhihu/cmdb/pkg/query/ast"
 )
 
 func TestSelector_QuerySQL(t *testing.T) {
-	var metas = map[string]model.ObjectMeta{}
-	metas["B"] = model.ObjectMeta{
+	var metas = map[string]*model.ObjectMeta{}
+	metas["B"] = &model.ObjectMeta{
 		ID:          0,
 		TypeID:      1,
 		Name:        "B",
@@ -34,7 +38,7 @@ func TestSelector_QuerySQL(t *testing.T) {
 		CreateTime:  time.Time{},
 		DeleteTime:  nil,
 	}
-	metas["S"] = model.ObjectMeta{
+	metas["S"] = &model.ObjectMeta{
 		ID:          0,
 		TypeID:      1,
 		Name:        "S",
@@ -43,7 +47,7 @@ func TestSelector_QuerySQL(t *testing.T) {
 		CreateTime:  time.Time{},
 		DeleteTime:  nil,
 	}
-	metas["D"] = model.ObjectMeta{
+	metas["D"] = &model.ObjectMeta{
 		ID:          0,
 		TypeID:      1,
 		Name:        "D",
@@ -52,7 +56,7 @@ func TestSelector_QuerySQL(t *testing.T) {
 		CreateTime:  time.Time{},
 		DeleteTime:  nil,
 	}
-	metas["I"] = model.ObjectMeta{
+	metas["I"] = &model.ObjectMeta{
 		ID:          0,
 		TypeID:      1,
 		Name:        "I",
@@ -74,7 +78,10 @@ func TestSelector_QuerySQL(t *testing.T) {
 	}
 	selector := &Selector{requires: requires}
 	sql, args, err := selector.QuerySQL(metas)
-	t.Log(sql, args, err)
+	if err != nil {
+		t.Fatalf("generate SQL failed: %s", err)
+	}
+	t.Log(sql, args)
 }
 
 func randStr(typ int) string {
@@ -87,7 +94,7 @@ func randStr(typ int) string {
 	case model.DOUBLE:
 		v = strconv.FormatFloat(rand.Float64()+float64(rand.Intn(10)), 'g', -1, 64)
 	case model.STRING:
-		v = String(3)
+		v = RandString(3)
 	}
 	return v
 }
@@ -147,10 +154,10 @@ var validOperator = map[int][]ast.Operator{
 const charset = "abcdefghijklmnopqrstuvwxyz" +
 	"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
-var seededRand *rand.Rand = rand.New(
+var seededRand = rand.New(
 	rand.NewSource(time.Now().UnixNano()))
 
-func StringWithCharset(length int, charset string) string {
+func RandStringWithCharset(length int, charset string) string {
 	b := make([]byte, length)
 	for i := range b {
 		b[i] = charset[seededRand.Intn(len(charset))]
@@ -158,6 +165,62 @@ func StringWithCharset(length int, charset string) string {
 	return string(b)
 }
 
-func String(length int) string {
-	return StringWithCharset(length, charset)
+func RandString(length int) string {
+	return RandStringWithCharset(length, charset)
+}
+
+type testObjectMetas struct {
+	Age   int     `json:"age"`
+	IDC   string  `json:"idc"`
+	Valid bool    `json:"valid"`
+	Size  float64 `json:"size"`
+}
+
+type testMatch struct {
+	metas testObjectMetas
+	match bool
+}
+
+var matchTestTable = []struct {
+	query  string
+	tables []testMatch
+}{
+	{
+		query: `age = 12 AND idc in ("idc01","idc02")`,
+		tables: []testMatch{
+			{testObjectMetas{Age: 12, IDC: "idc01"}, true},
+			{testObjectMetas{Age: 12, IDC: "idc01"}, true},
+			{testObjectMetas{Age: 12, IDC: "idc03"}, false},
+			{testObjectMetas{Age: 14, IDC: "idc01"}, false},
+		},
+	},
+}
+
+func TestSelector_Match(t *testing.T) {
+	for _, r := range matchTestTable {
+		s, err := Parse(r.query)
+		if err != nil {
+			t.Fatalf("parse %s error: %s", r.query, err)
+		}
+		for _, meta := range r.tables {
+			match := s.Match(metas(meta.metas))
+			if match != meta.match {
+				t.Fatalf("metas: %v ,except: %v got: %v", meta.metas, match, meta.match)
+			}
+		}
+	}
+
+}
+
+func metas(o interface{}) map[string]*v1.ObjectMetaValue {
+	data, _ := json.Marshal(o)
+	var target = map[string]json.RawMessage{}
+	_ = json.Unmarshal(data, &target)
+	var dest = map[string]*v1.ObjectMetaValue{}
+	for k, message := range target {
+		var v = v1.ObjectMetaValue{}
+		_ = (&jsonpb.Unmarshaler{}).Unmarshal(bytes.NewBuffer(message), &v)
+		dest[k] = &v
+	}
+	return dest
 }

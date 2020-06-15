@@ -11,20 +11,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build wireinject
-
-package main
+package server
 
 import (
 	"context"
 
-	"github.com/google/wire"
-	"github.com/zhihu/cmdb/pkg/server"
-	"github.com/zhihu/cmdb/pkg/storage/cdc"
-	"github.com/zhihu/cmdb/pkg/tools/database"
-	"github.com/zhihu/cmdb/pkg/tools/pd"
+	"github.com/grpc-ecosystem/grpc-gateway/runtime"
+	v1 "github.com/zhihu/cmdb/pkg/api/v1"
+	"google.golang.org/grpc"
 )
 
-func InitServer(ctx context.Context, dsn database.DSN, pdConf *pd.Config, name cdc.DriverName, source cdc.Source) (*server.Server, error) {
-	panic(wire.Build(server.Set))
+type Server struct {
+	Objects     *Objects
+	ObjectTypes *ObjectTypes
+}
+
+func (s *Server) Register(server *grpc.Server, mux *runtime.ServeMux) {
+	v1.RegisterObjectsServer(server, s.Objects)
+	v1.RegisterObjectTypesServer(server, s.ObjectTypes)
+	_ = v1.RegisterObjectsHandlerServer(context.Background(), mux, s.Objects)
+	_ = v1.RegisterObjectTypesHandlerServer(context.Background(), mux, s.ObjectTypes)
 }

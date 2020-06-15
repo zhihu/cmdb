@@ -11,20 +11,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build wireinject
-
-package main
+package mtables
 
 import (
-	"context"
+	"io/ioutil"
+	"os/exec"
+	"testing"
 
-	"github.com/google/wire"
-	"github.com/zhihu/cmdb/pkg/server"
-	"github.com/zhihu/cmdb/pkg/storage/cdc"
-	"github.com/zhihu/cmdb/pkg/tools/database"
-	"github.com/zhihu/cmdb/pkg/tools/pd"
+	"github.com/zhihu/cmdb/pkg/model"
 )
 
-func InitServer(ctx context.Context, dsn database.DSN, pdConf *pd.Config, name cdc.DriverName, source cdc.Source) (*server.Server, error) {
-	panic(wire.Build(server.Set))
+func TestRender(t *testing.T) {
+
 }
